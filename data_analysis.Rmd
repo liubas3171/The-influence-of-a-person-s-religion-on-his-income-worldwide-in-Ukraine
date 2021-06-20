@@ -1,0 +1,191 @@
+---
+title: "Project by Nazar Liubas"
+output:
+  html_document:
+    df_print: paged
+---
+## Reading of data
+```{r}
+my_data_3 = readRDS('EVS-WVS 2017-2020/EVS_WVS_Joint_v1.1.0 R.rds')
+```
+
+```{r}
+head(my_data_3)
+```
+
+
+```{r}
+bool_to_int <- function(vector_of_bools) {
+   # func that converts values in vector from false to 0,
+   # from true to 1, from na to na.
+       res = c(1:length(vector_of_bools))
+       for(bool in c(1: length(vector_of_bools))) {
+              if (is.na(vector_of_bools[bool])) {
+                     res[bool] = NA
+              }
+              else if(vector_of_bools[bool] == F) {
+                     res[bool] = 0
+              }
+              else {
+                     res[bool] = 1
+              }
+       }
+       res
+}
+```
+
+
+
+# Probit models for different basis dummy in Ukraine
+
+### Data preprocessing
+```{r}
+needed_data_ukraine = my_data_3[my_data_3$cntry == 804,]
+needed_columns = c('X047_WVS7', 'F025')
+needed_data_ukraine = needed_data_ukraine[, needed_columns]
+colnames(needed_data_ukraine) <- c('Scale_of_incomes', 'Religious_denomination')
+needed_data_ukraine$High_income = bool_to_int(needed_data_ukraine$Scale_of_incomes > 5)
+head(needed_data_ukraine)
+```
+
+```{r}
+# There are no buddhists in Ukraine (id = 7)
+needed_data_ukraine$ateist = bool_to_int(needed_data_ukraine$Religious_denomination == 0)
+needed_data_ukraine$roman_cath = bool_to_int(needed_data_ukraine$Religious_denomination == 1)
+needed_data_ukraine$protestant = bool_to_int(needed_data_ukraine$Religious_denomination == 2)
+needed_data_ukraine$orthodox = bool_to_int(needed_data_ukraine$Religious_denomination == 3)
+needed_data_ukraine$jew = bool_to_int(needed_data_ukraine$Religious_denomination == 4)
+needed_data_ukraine$muslim = bool_to_int(needed_data_ukraine$Religious_denomination == 5)
+needed_data_ukraine$hindu = bool_to_int(needed_data_ukraine$Religious_denomination == 6)
+needed_data_ukraine$other = bool_to_int(needed_data_ukraine$Religious_denomination == 9)
+needed_data_ukraine$other_christ = bool_to_int(needed_data_ukraine$Religious_denomination == 8)
+
+head(needed_data_ukraine)
+```
+### Building of models
+```{r}
+
+needed_data_ukraine = na.exclude(needed_data_ukraine)
+high_income = needed_data_ukraine$High_income
+
+# there are no data about buddhists in Ukraine
+some_res = list(needed_data_ukraine$ateist, needed_data_ukraine$roman_cath,
+                needed_data_ukraine$orthodox, needed_data_ukraine$muslim,
+                needed_data_ukraine$jew, needed_data_ukraine$other_christ,
+                needed_data_ukraine$protestant, needed_data_ukraine$other,
+                needed_data_ukraine$hindu)
+var_names = c('ateist', 'roman_catholic', 'orthodox',
+              'muslim', 'jew', 'other_christian',
+              'protestant', 'other', 'hindu')
+
+for (i in c(1:9)) {
+   some_res1 = some_res
+   some_res1[[i]] = 0 * some_res1[[i]]
+   
+   ateist = unlist(some_res1[1])
+   roman_catholic = unlist(some_res1[2])
+   orthodox = unlist(some_res1[3])
+   muslim = unlist(some_res1[4])
+   jew = unlist(some_res1[5])
+   other_christian = unlist(some_res1[6])
+   protestant = unlist(some_res1[7])
+   other = unlist(some_res1[8])
+   hindu = unlist(some_res1[9])
+   
+   model_ukraine = glm(high_inc ~ ateist + roman_catholic + orthodox + muslim +
+                jew + other_christian + protestant + other + hindu,
+                family = binomial(link = "probit"))
+   cat('\n           Basis dummy:', var_names[i], '\n')
+   print(summary(model_ukraine))
+}
+```
+```{r}
+t.test(needed_data_ukraine$roman_cath, needed_data_ukraine$orthodox, alternative = 'l')
+#roman_catholic other_christian
+```
+
+
+### Pseudo r^2 Ukraine
+```{r}
+1 - model_ukraine$deviance / model_ukraine$null.deviance
+```
+
+
+
+
+
+# Probit models for different basis dummy worldwide
+
+### Data preprocessing
+```{r}
+needed_data_world = my_data_3
+needed_columns = c('X047_WVS7', 'F025')
+needed_data_world = needed_data_world[, needed_columns]
+colnames(needed_data_world) <- c('Scale_of_incomes', 'Religious_denomination')
+needed_data_world$High_income = bool_to_int(needed_data_world$Scale_of_incomes > 5)
+head(needed_data_world)
+```
+
+```{r}
+needed_data_world$ateist = bool_to_int(needed_data_world$Religious_denomination == 0)
+needed_data_world$roman_cath = bool_to_int(needed_data_world$Religious_denomination == 1)
+needed_data_world$protestant = bool_to_int(needed_data_world$Religious_denomination == 2)
+needed_data_world$orthodox = bool_to_int(needed_data_world$Religious_denomination == 3)
+needed_data_world$jew = bool_to_int(needed_data_world$Religious_denomination == 4)
+needed_data_world$muslim = bool_to_int(needed_data_world$Religious_denomination == 5)
+needed_data_world$hindu = bool_to_int(needed_data_world$Religious_denomination == 6)
+needed_data_world$buddhist = bool_to_int(needed_data_world$Religious_denomination == 7)
+needed_data_world$other = bool_to_int(needed_data_world$Religious_denomination == 9)
+needed_data_world$other_christ = bool_to_int(needed_data_world$Religious_denomination == 8)
+# no 10 because of multicollinearity 
+```
+
+
+
+```{r}
+needed_data_world = na.exclude(needed_data_world)
+high_income = needed_data_world$High_income
+
+some_res = list(needed_data_world$ateist, needed_data_world$roman_cath,
+                needed_data_world$orthodox, needed_data_world$muslim,
+                needed_data_world$jew, needed_data_world$other_christ,
+                needed_data_world$protestant, needed_data_world$other,
+                needed_data_world$hindu, needed_data_world$buddhist)
+
+var_names = c('ateist', 'roman_catholic', 'orthodox',
+              'muslim', 'jew', 'other_christian',
+              'protestant', 'other', 'hindu', 'buddhist')
+
+for (i in c(1:10)) {
+   some_res1 = some_res
+   some_res1[[i]] = 0 * some_res1[[i]]
+   
+   ateist = unlist(some_res1[1])
+   roman_catholic = unlist(some_res1[2])
+   orthodox = unlist(some_res1[3])
+   muslim = unlist(some_res1[4])
+   jew = unlist(some_res1[5])
+   other_christian = unlist(some_res1[6])
+   protestant = unlist(some_res1[7])
+   other = unlist(some_res1[8])
+   hindu = unlist(some_res1[9])
+   buddhist = unlist(some_res1[10])
+   #TODO glm
+   model_world = lm(high_income ~ ateist + roman_catholic + orthodox + muslim +
+                jew + other_christian + protestant + other + hindu + buddhist)#,
+                #,
+                #family = binomial(link = "probit"))
+   
+   cat('\n           Basis dummy:', var_names[i], '\n')
+   print(summary(model_world))
+}
+```
+```{r}
+t.test(needed_data_world$buddhist, needed_data_world$jew, alternative = 'l')
+```
+
+
+### Pseudo r^2 for world
+```{r}
+1 - model_world$deviance / model_world$null.deviance
+```
